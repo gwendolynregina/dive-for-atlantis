@@ -8,20 +8,20 @@ const CURRENT_STATUS_PROBS = [
 
 const EVENT_TABLES = {
   NO_CURRENT: [
-    { event: "SHARK", prob: 0.1 },
+    { event: "SHARK", prob: 0.05 },
     { event: "LOST_BEARINGS", prob: 0.1 },
-    { event: "OLD_COINS", prob: 0.3, points: 10 },
-    { event: "SHIPWRECK_DEBRIS", prob: 0.2, points: 20 },
-    { event: "SUNKEN_CHEST", prob: 0.15, points: 50 },
-    { event: "ANCIENT_RELIC", prob: 0.05, points: 100 }
+    { event: "OLD_COINS", prob: 0.315, points: 10 },
+    { event: "SHIPWRECK_DEBRIS", prob: 0.21, points: 20 },
+    { event: "SUNKEN_CHEST", prob: 0.1575, points: 50 },
+    { event: "ANCIENT_RELIC", prob: 0.0675, points: 100 }
   ],
   SOME_CURRENT: [
     { event: "LOST_BEARINGS", prob: 0.3 },
-    { event: "SHARK", prob: 0.2 },
-    { event: "OLD_COINS", prob: 0.20, points: 10 },
-    { event: "SHIPWRECK_DEBRIS", prob: 0.15, points: 20 },
-    { event: "SUNKEN_CHEST", prob: 0.10, points: 50 },
-    { event: "ANCIENT_RELIC", prob: 0.05, points: 100 }
+    { event: "SHARK", prob: 0.1 },
+    { event: "OLD_COINS", prob: 0.225, points: 10 },
+    { event: "SHIPWRECK_DEBRIS", prob: 0.16875, points: 20 },
+    { event: "SUNKEN_CHEST", prob: 0.1125, points: 50 },
+    { event: "ANCIENT_RELIC", prob: 0.09375, points: 100 }
   ],
   STRONG_CURRENTS: [
     { event: "LOST_BEARINGS", prob: 0.7 },
@@ -322,22 +322,21 @@ zkProofBtn.addEventListener('click', async () => {
     const input = {
         final_score: game.totalScore,
         air_left: game.mainAirSupply,
-        max_score: 10000,
-        max_air: 10
+
     };
 
     try {
         // Generate the proof
         const { proof, publicSignals } = await window.snarkjs.groth16.fullProve(
             input,
-            'score_proof_js/score_proof.wasm',
-            'score_proof_final.zkey'
+            'main.wasm',
+            'main.groth16.zkey'
         );
 
         zkProofOutput.textContent = 'Proof generated! Submitting to zkVerify...';
 
         // Load verification key
-        const vkey = await fetch('verification_key.json').then(res => res.json());
+        const vkey = await fetch('main.groth16.vkey.json').then(res => res.json());
 
         // Prepare params for zkVerify
         const API_URL = 'https://relayer-api.horizenlabs.io/api/v1';
