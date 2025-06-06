@@ -30,6 +30,30 @@ const EVENT_TABLES = {
   ]
 };
 
+const BOOSTED_EVENT_TABLES = {
+  NO_CURRENT: [
+    { event: "SHARK", prob: 0.05, type: "bust" },
+    { event: "LOST_BEARINGS", prob: 0, type: "neutral" }, // Chance removed!
+    { event: "OLD_COINS", prob: 0.40, type: "treasure", points: 10 },
+    { event: "SHIPWRECK_DEBRIS", prob: 0.30, type: "treasure", points: 20 },
+    { event: "SUNKEN_CHEST", prob: 0.17, type: "treasure", points: 50 },
+    { event: "ANCIENT_RELIC", prob: 0.08, type: "treasure", points: 100 }
+  ],
+  SOME_CURRENT: [
+    { event: "LOST_BEARINGS", prob: 0, type: "neutral" },
+    { event: "SHARK", prob: 0.1, type: "bust" },
+    { event: "OLD_COINS", prob: 0.365, type: "treasure", points: 10 },
+    { event: "SHIPWRECK_DEBRIS", prob: 0.29875, type: "treasure", points: 20 },
+    { event: "SUNKEN_CHEST", prob: 0.1325, type: "treasure", points: 50 },
+    { event: "ANCIENT_RELIC", prob: 0.10375, type: "treasure", points: 100 }
+  ],
+  STRONG_CURRENTS: [
+    { event: "LOST_BEARINGS", prob: 0.2, type: "neutral" },
+    { event: "SHARK", prob: 0.1, type: "bust" },
+    { event: "ATLANTIS_DISCOVERY", prob: 0.7, type: "treasure", points: 500 } // Massively increased!
+  ]
+};
+
 function weightedRandom(options) {
   const r = Math.random();
   let acc = 0;
@@ -59,6 +83,9 @@ class DiveforAtlantisGame {
     this.gameOver = false;
     this.lastEvent = null;
     this.sharksEncountered = 0;
+    this.sharkRepellents = 1; // Player starts each game with 1 repellent
+    this.metalDetectors = 1; // Player starts with 1 metal detector
+    this.metalDetectorActive = false;
   }
 
   checkGameOver() {
@@ -87,6 +114,18 @@ class DiveforAtlantisGame {
     return weightedRandom(CURRENT_STATUS_PROBS).status;
   }
 
+  useMetalDetector() {
+    if (!this.inDive || this.gameOver || this.metalDetectors <= 0 || this.metalDetectorActive) {
+      // Cannot use if: not in a dive, game is over, no detectors left, or one is already active for this turn
+      return false;
+    }
+
+    this.metalDetectors--; // Consume one detector
+    this.metalDetectorActive = true; // Activate the effect for the next dive deeper
+    
+    return true; // Signal to the UI that it was successful
+  }
+
   diveDeeper() {
     if (!this.inDive || this.gameOver || this.mainAirSupply <= 0) return null;
     
@@ -96,20 +135,35 @@ class DiveforAtlantisGame {
     }
     
     this.mainAirSupply -= cost;
-    const event = weightedRandom(EVENT_TABLES[this.currentStatus]);
+    
+    // Use boosted tables if metal detector is active
+    const eventTables = this.metalDetectorActive ? BOOSTED_EVENT_TABLES : EVENT_TABLES;
+    const event = weightedRandom(eventTables[this.currentStatus]);
     this.lastEvent = event;
     let outcome = { ...event, haulBefore: this.currentHaul };
 
     if (event.event === "SHARK") {
-      this.currentHaul = 0;
-      this.inDive = false;
       this.sharksEncountered++;
-      this.checkGameOver();
-      return { ...outcome, diveEnded: true, haulAfter: this.currentHaul };
+      
+      // Check for Shark Repellent!
+      if (this.sharkRepellents > 0) {
+        this.sharkRepellents--; // Consume the repellent
+        // The repellent works! Negate the bust effect. The dive continues.
+        outcome.repellentUsed = true; // Add a flag for the UI to report this
+      } else {
+        // No repellent, normal bust outcome
+        this.currentHaul = 0;
+        this.inDive = false;
+      }
     } else if (event.event === "LOST_BEARINGS") {
       // Nothing changes
     } else if (["ATLANTIS_DISCOVERY", "OLD_COINS", "SHIPWRECK_DEBRIS", "SUNKEN_CHEST", "ANCIENT_RELIC"].includes(event.event)) {
       this.currentHaul += event.points;
+    }
+
+    // Reset metal detector after use
+    if (this.metalDetectorActive) {
+      this.metalDetectorActive = false;
     }
 
     if (this.mainAirSupply <= 0) {
@@ -143,6 +197,9 @@ const scoreEl = document.getElementById('score');
 const haulEl = document.getElementById('haul');
 const treasuresEl = document.getElementById('treasures');
 const sharksEl = document.getElementById('sharks');
+const repellentsEl = document.getElementById('repellents');
+const detectorsEl = document.getElementById('detectors');
+const useDetectorBtn = document.getElementById('use-detector');
 diveStatusEl = document.getElementById('dive-status');
 const currentStatusEmojiEl = document.getElementById('current-status-emoji');
 const currentStatusTextEl = document.getElementById('current-status-text');
@@ -235,6 +292,9 @@ function updateUI(logMsg = null, logEmoji = null) {
     scoreEl.textContent = game.totalScore;
     haulEl.textContent = game.currentHaul;
     sharksEl.textContent = game.sharksEncountered;
+    repellentsEl.textContent = game.sharkRepellents;
+    detectorsEl.textContent = game.metalDetectors;
+    useDetectorBtn.disabled = !game.inDive || game.gameOver || game.metalDetectors <= 0 || game.metalDetectorActive;
     diveStatusEl.textContent = game.inDive ? 'Diving' : 'At Surface';
     if (game.inDive && game.currentStatus) {
         const cost = game.DIVE_COSTS[game.currentStatus];
@@ -252,8 +312,14 @@ function updateUI(logMsg = null, logEmoji = null) {
         logEmojiEl.textContent = logEmoji || '';
         logTextEl.textContent = logMsg;
     } else if (game.lastEvent) {
-        logEmojiEl.textContent = eventEmoji(game.lastEvent);
-        logTextEl.textContent = eventText(game.lastEvent);
+        let msg = eventText(game.lastEvent);
+        let emoji = eventEmoji(game.lastEvent);
+        if (game.lastEvent.repellentUsed) {
+            msg += ' (Shark Repellent saved your haul!)';
+            emoji = '🛡️';
+        }
+        logEmojiEl.textContent = emoji;
+        logTextEl.textContent = msg;
     } else {
         logEmojiEl.textContent = '';
         logTextEl.textContent = '';
@@ -327,6 +393,14 @@ surfaceBtn.addEventListener('click', () => {
   } else {
     updateUI('Cannot surface now.', '❌');
   }
+});
+
+useDetectorBtn.addEventListener('click', () => {
+    if (game.useMetalDetector()) {
+        updateUI('Metal Detector activated! Next dive will have better treasure chances!', '🔍');
+    } else {
+        updateUI('Cannot use Metal Detector now.', '❌');
+    }
 });
 
 zkProofBtn.addEventListener('click', async () => {
