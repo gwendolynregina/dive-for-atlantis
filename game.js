@@ -371,7 +371,9 @@ zkProofBtn.addEventListener('click', async () => {
             return;
         }
 
-        zkProofOutput.textContent = "Proof submitted! Waiting for finalization...\nJob ID: " + requestResponse.jobId;
+        const explorerLink = requestResponse.txHash ? 
+            `\n\n🔍 View Transaction: <a href="https://zkverify-testnet.subscan.io/extrinsic/${requestResponse.txHash}" target="_blank" style="color: #0066cc; text-decoration: underline; font-weight: bold;">https://zkverify-testnet.subscan.io/extrinsic/${requestResponse.txHash}</a>` : '';
+        zkProofOutput.innerHTML = "Proof submitted! Waiting for finalization..." + explorerLink + "\n\nJob ID: " + requestResponse.jobId;
 
         // Poll for job status (max 2 minutes)
         let finalized = false;
@@ -382,7 +384,9 @@ zkProofBtn.addEventListener('click', async () => {
             const statusResp = await fetch(`${API_URL}/job-status/${API_KEY}/${requestResponse.jobId}`);
             const jobStatusResponse = await statusResp.json();
             if (jobStatusResponse.status === "Finalized") {
-                zkProofOutput.textContent = "Job finalized successfully!\n\n" +
+                const explorerLink = jobStatusResponse.txHash ? 
+                    `\nTransaction Hash: <a href="https://zkverify-testnet.subscan.io/extrinsic/${jobStatusResponse.txHash}" target="_blank">${jobStatusResponse.txHash}</a>` : '';
+                zkProofOutput.innerHTML = "Job finalized successfully!" + explorerLink + "\n\n" +
                     JSON.stringify(jobStatusResponse, null, 2);
                 finalized = true;
             } else {
