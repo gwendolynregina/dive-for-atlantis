@@ -1,4 +1,7 @@
 import * as snarkjs from 'snarkjs';
+
+console.log("snarkjs loaded:", typeof snarkjs === "object");
+
 import axios from 'axios';
 import fs from 'fs';
 
