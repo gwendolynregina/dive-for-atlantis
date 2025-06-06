@@ -16,12 +16,12 @@ const EVENT_TABLES = {
     { event: "ANCIENT_RELIC", prob: 0.0675, points: 100 }
   ],
   SOME_CURRENT: [
-    { event: "LOST_BEARINGS", prob: 0.3 },
+    { event: "LOST_BEARINGS", prob: 0.2 },
     { event: "SHARK", prob: 0.1 },
-    { event: "OLD_COINS", prob: 0.225, points: 10 },
-    { event: "SHIPWRECK_DEBRIS", prob: 0.16875, points: 20 },
-    { event: "SUNKEN_CHEST", prob: 0.1125, points: 50 },
-    { event: "ANCIENT_RELIC", prob: 0.09375, points: 100 }
+    { event: "OLD_COINS", prob: 0.265, points: 10 },
+    { event: "SHIPWRECK_DEBRIS", prob: 0.19875, points: 20 },
+    { event: "SUNKEN_CHEST", prob: 0.1325, points: 50 },
+    { event: "ANCIENT_RELIC", prob: 0.10375, points: 100 }
   ],
   STRONG_CURRENTS: [
     { event: "LOST_BEARINGS", prob: 0.7 },
@@ -42,6 +42,11 @@ function weightedRandom(options) {
 
 class DiveforAtlantisGame {
   constructor() {
+    this.DIVE_COSTS = {
+      NO_CURRENT: 10,
+      SOME_CURRENT: 15,
+      STRONG_CURRENTS: 25 // High risk, high cost!
+    };
     this.resetGame();
   }
 
@@ -53,6 +58,7 @@ class DiveforAtlantisGame {
     this.currentStatus = null;
     this.gameOver = false;
     this.lastEvent = null;
+    this.sharksEncountered = 0;
   }
 
   checkGameOver() {
@@ -83,7 +89,13 @@ class DiveforAtlantisGame {
 
   diveDeeper() {
     if (!this.inDive || this.gameOver || this.mainAirSupply <= 0) return null;
-    this.mainAirSupply -= 20;
+    
+    const cost = this.DIVE_COSTS[this.currentStatus];
+    if (this.mainAirSupply < cost) {
+      return null;
+    }
+    
+    this.mainAirSupply -= cost;
     const event = weightedRandom(EVENT_TABLES[this.currentStatus]);
     this.lastEvent = event;
     let outcome = { ...event, haulBefore: this.currentHaul };
@@ -91,6 +103,7 @@ class DiveforAtlantisGame {
     if (event.event === "SHARK") {
       this.currentHaul = 0;
       this.inDive = false;
+      this.sharksEncountered++;
       this.checkGameOver();
       return { ...outcome, diveEnded: true, haulAfter: this.currentHaul };
     } else if (event.event === "LOST_BEARINGS") {
@@ -128,6 +141,8 @@ const game = new DiveforAtlantisGame();
 const airEl = document.getElementById('air');
 const scoreEl = document.getElementById('score');
 const haulEl = document.getElementById('haul');
+const treasuresEl = document.getElementById('treasures');
+const sharksEl = document.getElementById('sharks');
 diveStatusEl = document.getElementById('dive-status');
 const currentStatusEmojiEl = document.getElementById('current-status-emoji');
 const currentStatusTextEl = document.getElementById('current-status-text');
@@ -219,10 +234,16 @@ function updateUI(logMsg = null, logEmoji = null) {
     airEl.textContent = game.mainAirSupply;
     scoreEl.textContent = game.totalScore;
     haulEl.textContent = game.currentHaul;
+    sharksEl.textContent = game.sharksEncountered;
     diveStatusEl.textContent = game.inDive ? 'Diving' : 'At Surface';
     if (game.inDive && game.currentStatus) {
-        currentStatusEmojiEl.textContent = statusEmoji(game.currentStatus);
-        currentStatusTextEl.textContent = `Sea State: ${statusText(game.currentStatus)}`;
+        const cost = game.DIVE_COSTS[game.currentStatus];
+        const hasEnoughAir = game.mainAirSupply >= cost;
+        currentStatusEmojiEl.textContent = '';
+        currentStatusTextEl.innerHTML = `<div style="display: flex; justify-content: space-between; width: 100%;">
+            <span>${statusEmoji(game.currentStatus)} Sea State: ${statusText(game.currentStatus)}</span>
+            <span style="color: ${hasEnoughAir ? '#005580' : '#c62828'}">Dive Cost: ${cost} air</span>
+        </div>`;
     } else {
         currentStatusEmojiEl.textContent = '';
         currentStatusTextEl.textContent = '';
