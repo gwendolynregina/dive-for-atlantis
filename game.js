@@ -10,23 +10,23 @@ const EVENT_TABLES = {
   NO_CURRENT: [
     { event: "SHARK", prob: 0.05 },
     { event: "LOST_BEARINGS", prob: 0.1 },
-    { event: "OLD_COINS", prob: 0.315, points: 10 },
-    { event: "SHIPWRECK_DEBRIS", prob: 0.21, points: 20 },
-    { event: "SUNKEN_CHEST", prob: 0.1575, points: 50 },
-    { event: "ANCIENT_RELIC", prob: 0.0675, points: 100 }
+    { event: "OLD_COINS", prob: 0.315, money: 10 },
+    { event: "SHIPWRECK_DEBRIS", prob: 0.21, money: 20 },
+    { event: "SUNKEN_CHEST", prob: 0.1575, money: 50 },
+    { event: "ANCIENT_RELIC", prob: 0.0675, money: 100 }
   ],
   SOME_CURRENT: [
     { event: "LOST_BEARINGS", prob: 0.2 },
     { event: "SHARK", prob: 0.1 },
-    { event: "OLD_COINS", prob: 0.265, points: 10 },
-    { event: "SHIPWRECK_DEBRIS", prob: 0.19875, points: 20 },
-    { event: "SUNKEN_CHEST", prob: 0.1325, points: 50 },
-    { event: "ANCIENT_RELIC", prob: 0.10375, points: 100 }
+    { event: "OLD_COINS", prob: 0.265, money: 10 },
+    { event: "SHIPWRECK_DEBRIS", prob: 0.19875, money: 20 },
+    { event: "SUNKEN_CHEST", prob: 0.1325, money: 50 },
+    { event: "ANCIENT_RELIC", prob: 0.10375, money: 100 }
   ],
   STRONG_CURRENTS: [
     { event: "LOST_BEARINGS", prob: 0.7 },
     { event: "SHARK", prob: 0.1 },
-    { event: "ATLANTIS_DISCOVERY", prob: 0.2, points: 500 }
+    { event: "ATLANTIS_DISCOVERY", prob: 0.2, money: 500 }
   ]
 };
 
@@ -34,23 +34,23 @@ const BOOSTED_EVENT_TABLES = {
   NO_CURRENT: [
     { event: "SHARK", prob: 0.05, type: "bust" },
     { event: "LOST_BEARINGS", prob: 0, type: "neutral" }, // Chance removed!
-    { event: "OLD_COINS", prob: 0.40, type: "treasure", points: 10 },
-    { event: "SHIPWRECK_DEBRIS", prob: 0.30, type: "treasure", points: 20 },
-    { event: "SUNKEN_CHEST", prob: 0.17, type: "treasure", points: 50 },
-    { event: "ANCIENT_RELIC", prob: 0.08, type: "treasure", points: 100 }
+    { event: "OLD_COINS", prob: 0.40, type: "treasure", money: 10 },
+    { event: "SHIPWRECK_DEBRIS", prob: 0.30, type: "treasure", money: 20 },
+    { event: "SUNKEN_CHEST", prob: 0.17, type: "treasure", money: 50 },
+    { event: "ANCIENT_RELIC", prob: 0.08, type: "treasure", money: 100 }
   ],
   SOME_CURRENT: [
     { event: "LOST_BEARINGS", prob: 0, type: "neutral" },
     { event: "SHARK", prob: 0.1, type: "bust" },
-    { event: "OLD_COINS", prob: 0.365, type: "treasure", points: 10 },
-    { event: "SHIPWRECK_DEBRIS", prob: 0.29875, type: "treasure", points: 20 },
-    { event: "SUNKEN_CHEST", prob: 0.1325, type: "treasure", points: 50 },
-    { event: "ANCIENT_RELIC", prob: 0.10375, type: "treasure", points: 100 }
+    { event: "OLD_COINS", prob: 0.365, type: "treasure", money: 10 },
+    { event: "SHIPWRECK_DEBRIS", prob: 0.29875, type: "treasure", money: 20 },
+    { event: "SUNKEN_CHEST", prob: 0.1325, type: "treasure", money: 50 },
+    { event: "ANCIENT_RELIC", prob: 0.10375, type: "treasure", money: 100 }
   ],
   STRONG_CURRENTS: [
     { event: "LOST_BEARINGS", prob: 0.2, type: "neutral" },
     { event: "SHARK", prob: 0.1, type: "bust" },
-    { event: "ATLANTIS_DISCOVERY", prob: 0.7, type: "treasure", points: 500 } // Massively increased!
+    { event: "ATLANTIS_DISCOVERY", prob: 0.7, type: "treasure", money: 500 } // Massively increased!
   ]
 };
 
@@ -64,7 +64,7 @@ function weightedRandom(options) {
   return options[options.length - 1];
 }
 
-class DiveforAtlantisGame {
+class GameManager {
   constructor() {
     this.DIVE_COSTS = {
       NO_CURRENT: 10,
@@ -83,9 +83,10 @@ class DiveforAtlantisGame {
     this.gameOver = false;
     this.lastEvent = null;
     this.sharksEncountered = 0;
-    this.sharkRepellents = 1; // Player starts each game with 1 repellent
-    this.metalDetectors = 1; // Player starts with 1 metal detector
+    this.sharkRepellents = 0; 
+    this.metalDetectors = 0;
     this.metalDetectorActive = false;
+    this.wallet = 200; // Starting money
   }
 
   checkGameOver() {
@@ -158,7 +159,7 @@ class DiveforAtlantisGame {
     } else if (event.event === "LOST_BEARINGS") {
       // Nothing changes
     } else if (["ATLANTIS_DISCOVERY", "OLD_COINS", "SHIPWRECK_DEBRIS", "SUNKEN_CHEST", "ANCIENT_RELIC"].includes(event.event)) {
-      this.currentHaul += event.points;
+      this.currentHaul += event.money;
     }
 
     // Reset metal detector after use
@@ -180,6 +181,7 @@ class DiveforAtlantisGame {
   surfaceSafely() {
     if (!this.inDive || this.gameOver) return false;
     this.totalScore += this.currentHaul;
+    this.wallet += this.currentHaul; // Add hauled money to wallet
     this.currentHaul = 0;
     this.inDive = false;
     this.currentStatus = null;
@@ -190,7 +192,7 @@ class DiveforAtlantisGame {
 
 // --- UI Logic ---
 
-const game = new DiveforAtlantisGame();
+const game = new GameManager();
 
 const airEl = document.getElementById('air');
 const scoreEl = document.getElementById('score');
@@ -270,11 +272,11 @@ function eventText(event) {
   switch (event.event) {
     case 'SHARK': return 'Shark Encounter! You lost your haul and the dive ends!';
     case 'LOST_BEARINGS': return 'Lost your bearings. No treasure found.';
-    case 'OLD_COINS': return 'Found Old Coins! (+10 points)';
-    case 'SHIPWRECK_DEBRIS': return 'Found Shipwreck Debris! (+20 points)';
-    case 'SUNKEN_CHEST': return 'Found a Sunken Chest! (+50 points)';
-    case 'ANCIENT_RELIC': return 'Discovered an Ancient Relic! (+100 points)';
-    case 'ATLANTIS_DISCOVERY': return 'Incredible! Atlantis Discovery! (+500 points)';
+    case 'OLD_COINS': return 'Found Old Coins! (+$10)';
+    case 'SHIPWRECK_DEBRIS': return 'Found Shipwreck Debris! (+$20)';
+    case 'SUNKEN_CHEST': return 'Found a Sunken Chest! (+$50)';
+    case 'ANCIENT_RELIC': return 'Discovered an Ancient Relic! (+$100)';
+    case 'ATLANTIS_DISCOVERY': return 'Incredible! Atlantis Discovery! (+$500)';
     default: return '';
   }
 }
@@ -294,6 +296,7 @@ function updateUI(logMsg = null, logEmoji = null) {
     sharksEl.textContent = game.sharksEncountered;
     repellentsEl.textContent = game.sharkRepellents;
     detectorsEl.textContent = game.metalDetectors;
+    document.getElementById('money').textContent = game.wallet; // Update wallet display
     useDetectorBtn.disabled = !game.inDive || game.gameOver || game.metalDetectors <= 0 || game.metalDetectorActive;
     diveStatusEl.textContent = game.inDive ? 'Diving' : 'At Surface';
     if (game.inDive && game.currentStatus) {
