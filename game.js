@@ -32,25 +32,25 @@ const EVENT_TABLES = {
 
 const BOOSTED_EVENT_TABLES = {
   NO_CURRENT: [
-    { event: "SHARK", prob: 0.05, type: "bust" },
-    { event: "LOST_BEARINGS", prob: 0, type: "neutral" }, // Chance removed!
+    { event: "SHARK", prob: 0, type: "bust" },
+    { event: "LOST_BEARINGS", prob: 0.05, type: "neutral" },
     { event: "OLD_COINS", prob: 0.40, type: "treasure", money: 10 },
     { event: "SHIPWRECK_DEBRIS", prob: 0.30, type: "treasure", money: 20 },
     { event: "SUNKEN_CHEST", prob: 0.17, type: "treasure", money: 50 },
     { event: "ANCIENT_RELIC", prob: 0.08, type: "treasure", money: 100 }
   ],
   SOME_CURRENT: [
-    { event: "LOST_BEARINGS", prob: 0, type: "neutral" },
-    { event: "SHARK", prob: 0.1, type: "bust" },
-    { event: "OLD_COINS", prob: 0.365, type: "treasure", money: 10 },
-    { event: "SHIPWRECK_DEBRIS", prob: 0.29875, type: "treasure", money: 20 },
-    { event: "SUNKEN_CHEST", prob: 0.1325, type: "treasure", money: 50 },
-    { event: "ANCIENT_RELIC", prob: 0.10375, type: "treasure", money: 100 }
+    { event: "LOST_BEARINGS", prob: 0.05, type: "neutral" },
+    { event: "SHARK", prob: 0, type: "bust" },
+    { event: "OLD_COINS", prob: 0.39, type: "treasure", money: 10 },
+    { event: "SHIPWRECK_DEBRIS", prob: 0.31, type: "treasure", money: 20 },
+    { event: "SUNKEN_CHEST", prob: 0.14, type: "treasure", money: 50 },
+    { event: "ANCIENT_RELIC", prob: 0.11, type: "treasure", money: 100 }
   ],
   STRONG_CURRENTS: [
     { event: "LOST_BEARINGS", prob: 0.2, type: "neutral" },
-    { event: "SHARK", prob: 0.1, type: "bust" },
-    { event: "ATLANTIS_DISCOVERY", prob: 0.7, type: "treasure", money: 500 } // Massively increased!
+    { event: "SHARK", prob: 0.05, type: "bust" },
+    { event: "ATLANTIS_DISCOVERY", prob: 0.75, type: "treasure", money: 500 }
   ]
 };
 
