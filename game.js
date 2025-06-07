@@ -186,6 +186,21 @@ class GameManager {
     return true; // Signal to the UI that it was successful
   }
 
+  useAirTank() {
+    if (this.inDive || this.gameOver || this.airTanks <= 0) {
+      // Cannot use if: in a dive, game is over, or no air tanks left
+      return { success: false, message: "Cannot use Air Tank now." };
+    }
+
+    this.airTanks--; // Consume one air tank
+    this.mainAirSupply += 200; // Add 200 bar to air supply
+    
+    // Update UI
+    this.updateShopUI();
+    
+    return { success: true, message: "Air Tank used! Added 200 bar to your air supply." };
+  }
+
   useSonarPing() {
     if (!this.inDive || this.gameOver || this.sonarPings <= 0) {
       // Cannot use if: not in a dive, game is over, or no sonar pings left
@@ -403,7 +418,7 @@ function updateUI(logMsg = null, logEmoji = null) {
     detectorsEl.textContent = game.metalDetectors;
     document.getElementById('money').textContent = game.wallet; // Update wallet display
     useDetectorBtn.disabled = !game.inDive || game.gameOver || game.metalDetectors <= 0 || game.metalDetectorActive;
-    diveStatusEl.textContent = game.inDive ? 'Diving' : 'At Surface';
+    diveStatusEl.textContent = game.inDive ? "Diving 🤿" : "At Surface 🚤";
     if (game.inDive && game.currentStatus) {
         const cost = game.DIVE_COSTS[game.currentStatus];
         const hasEnoughAir = game.mainAirSupply >= cost;
@@ -469,6 +484,9 @@ function updateUI(logMsg = null, logEmoji = null) {
     startDiveBtn.disabled = game.inDive || game.gameOver || game.mainAirSupply <= 0;
     diveDeeperBtn.disabled = !game.inDive || game.gameOver || game.mainAirSupply <= 0;
     surfaceBtn.disabled = !game.inDive || game.gameOver;
+    document.getElementById('use-air-tank').disabled = game.inDive || game.gameOver || game.airTanks <= 0;
+    document.getElementById('use-detector').disabled = game.inDive || game.gameOver || game.metalDetectors <= 0;
+    document.getElementById('use-sonar').disabled = !game.inDive || game.gameOver || game.sonarPings <= 0;
 }
 
 startDiveBtn.addEventListener('click', () => {
@@ -634,6 +652,16 @@ document.getElementById('use-sonar').addEventListener('click', () => {
   const result = game.useSonarPing();
   if (result.success) {
     updateUI(result.message, '📡');
+  } else {
+    updateUI(result.message, '❌');
+  }
+});
+
+// Add event listener for air tank button
+document.getElementById('use-air-tank').addEventListener('click', () => {
+  const result = game.useAirTank();
+  if (result.success) {
+    updateUI(result.message, '💨');
   } else {
     updateUI(result.message, '❌');
   }
