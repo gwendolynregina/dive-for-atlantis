@@ -98,6 +98,7 @@ class GameManager {
     this.wallet = 200; // Starting money
     this.airTanks = 0; // Track number of air tanks
     this.sonarPings = 0; // Track number of sonar pings
+    this.predictedEvent = null; // Store the event predicted by sonar
   }
 
   // Shop functionality
@@ -185,6 +186,44 @@ class GameManager {
     return true; // Signal to the UI that it was successful
   }
 
+  useSonarPing() {
+    if (!this.inDive || this.gameOver || this.sonarPings <= 0) {
+      // Cannot use if: not in a dive, game is over, or no sonar pings left
+      return { success: false, message: "Cannot use Sonar Ping now." };
+    }
+
+    // Get the next event without actually triggering it
+    const eventTables = this.metalDetectorActive ? BOOSTED_EVENT_TABLES : EVENT_TABLES;
+    const nextEvent = weightedRandom(eventTables[this.currentStatus]);
+    
+    // Store the predicted event
+    this.predictedEvent = nextEvent;
+    
+    // Consume one sonar ping
+    this.sonarPings--;
+    
+    // Update UI
+    this.updateShopUI();
+    
+    // Return the event category with immersive message
+    let message;
+    if (nextEvent.event === "SHARK") {
+      message = "The echo comes back distorted and heavy. The sonar flags the ominous silhouette of a nearby predator. Danger ahead.";
+    } else if (nextEvent.event === "LOST_BEARINGS") {
+      message = "Only the faint hum of the open ocean answers your call. The sonar finds nothing of significance nearby; the path ahead is clear, but empty.";
+    } else {
+      message = "A clear, high-pitched chime returns! The sonar has locked onto the unmistakable signature of treasure.";
+    }
+    
+    return { 
+      success: true, 
+      message: message,
+      category: nextEvent.event === "SHARK" ? "danger" : 
+                nextEvent.event === "LOST_BEARINGS" ? "neutral" : 
+                "treasure"
+    };
+  }
+
   diveDeeper() {
     if (!this.inDive || this.gameOver || this.mainAirSupply <= 0) return null;
     
@@ -195,9 +234,17 @@ class GameManager {
     
     this.mainAirSupply -= cost;
     
-    // Use boosted tables if metal detector is active
-    const eventTables = this.metalDetectorActive ? BOOSTED_EVENT_TABLES : EVENT_TABLES;
-    const event = weightedRandom(eventTables[this.currentStatus]);
+    // Use the predicted event if it exists, otherwise generate a new one
+    let event;
+    if (this.predictedEvent) {
+      event = this.predictedEvent;
+      this.predictedEvent = null; // Clear the prediction after using it
+    } else {
+      // Use boosted tables if metal detector is active
+      const eventTables = this.metalDetectorActive ? BOOSTED_EVENT_TABLES : EVENT_TABLES;
+      event = weightedRandom(eventTables[this.currentStatus]);
+    }
+    
     this.lastEvent = event;
     let outcome = { ...event, haulBefore: this.currentHaul };
 
@@ -245,39 +292,6 @@ class GameManager {
     this.currentStatus = null;
     this.lastEvent = null;
     return true;
-  }
-
-  useSonarPing() {
-    if (!this.inDive || this.gameOver || this.sonarPings <= 0) {
-      // Cannot use if: not in a dive, game is over, or no sonar pings left
-      return { success: false, message: "Cannot use Sonar Ping now." };
-    }
-
-    // Get the next event without actually triggering it
-    const eventTables = this.metalDetectorActive ? BOOSTED_EVENT_TABLES : EVENT_TABLES;
-    const nextEvent = weightedRandom(eventTables[this.currentStatus]);
-    
-    // Consume one sonar ping
-    this.sonarPings--;
-    
-    // Update UI
-    this.updateShopUI();
-    
-    // Return the event category
-    let category;
-    if (nextEvent.event === "SHARK") {
-      category = "danger";
-    } else if (nextEvent.event === "LOST_BEARINGS") {
-      category = "neutral";
-    } else {
-      category = "treasure";
-    }
-    
-    return { 
-      success: true, 
-      message: `Sonar Ping reveals: ${category.toUpperCase()} event ahead!`,
-      category: category
-    };
   }
 }
 
