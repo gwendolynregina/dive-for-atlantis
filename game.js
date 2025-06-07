@@ -71,6 +71,15 @@ class GameManager {
       SOME_CURRENT: 15,
       STRONG_CURRENTS: 25 // High risk, high cost!
     };
+    
+    // Shop item prices
+    this.ITEM_PRICES = {
+      AIR_TANK: 80,
+      SHARK_REPELLENT: 150,
+      METAL_DETECTOR: 100,
+      SONAR_PING: 50
+    };
+    
     this.resetGame();
   }
 
@@ -87,6 +96,55 @@ class GameManager {
     this.metalDetectors = 0;
     this.metalDetectorActive = false;
     this.wallet = 200; // Starting money
+    this.airTanks = 0; // Track number of air tanks
+    this.sonarPings = 0; // Track number of sonar pings
+  }
+
+  // Shop functionality
+  buyItem(itemType) {
+    const price = this.ITEM_PRICES[itemType];
+    
+    // Check if player has enough money
+    if (this.wallet < price) {
+      return { success: false, message: "Not enough money!" };
+    }
+
+    // Process the purchase
+    switch (itemType) {
+      case 'AIR_TANK':
+        this.airTanks++;
+        break;
+      case 'SHARK_REPELLENT':
+        this.sharkRepellents++;
+        break;
+      case 'METAL_DETECTOR':
+        this.metalDetectors++;
+        break;
+      case 'SONAR_PING':
+        this.sonarPings++;
+        break;
+      default:
+        return { success: false, message: "Invalid item!" };
+    }
+
+    // Deduct money from wallet
+    this.wallet -= price;
+    
+    // Update UI
+    this.updateShopUI();
+    
+    return { success: true, message: `Successfully purchased ${itemType}!` };
+  }
+
+  updateShopUI() {
+    // Update money display
+    document.getElementById('money').textContent = this.wallet;
+    
+    // Update item counts
+    document.getElementById('air-tank-count').textContent = this.airTanks;
+    document.getElementById('repellents').textContent = this.sharkRepellents;
+    document.getElementById('detectors').textContent = this.metalDetectors;
+    document.getElementById('sonar-pings').textContent = this.sonarPings;
   }
 
   checkGameOver() {
@@ -187,6 +245,39 @@ class GameManager {
     this.currentStatus = null;
     this.lastEvent = null;
     return true;
+  }
+
+  useSonarPing() {
+    if (!this.inDive || this.gameOver || this.sonarPings <= 0) {
+      // Cannot use if: not in a dive, game is over, or no sonar pings left
+      return { success: false, message: "Cannot use Sonar Ping now." };
+    }
+
+    // Get the next event without actually triggering it
+    const eventTables = this.metalDetectorActive ? BOOSTED_EVENT_TABLES : EVENT_TABLES;
+    const nextEvent = weightedRandom(eventTables[this.currentStatus]);
+    
+    // Consume one sonar ping
+    this.sonarPings--;
+    
+    // Update UI
+    this.updateShopUI();
+    
+    // Return the event category
+    let category;
+    if (nextEvent.event === "SHARK") {
+      category = "danger";
+    } else if (nextEvent.event === "LOST_BEARINGS") {
+      category = "neutral";
+    } else {
+      category = "treasure";
+    }
+    
+    return { 
+      success: true, 
+      message: `Sonar Ping reveals: ${category.toUpperCase()} event ahead!`,
+      category: category
+    };
   }
 }
 
@@ -509,6 +600,29 @@ resetGameBtn.addEventListener('click', () => {
     sharkImg.style.display = 'none';
     zkProofOutput.style.display = 'none';
     updateUI('Welcome to Dive for Atlantis! Click Start Dive to begin.', '🤿');
+});
+
+// Shop button event listeners
+document.querySelectorAll('button[onclick^="buyItem"]').forEach(button => {
+  button.addEventListener('click', (e) => {
+    const itemType = e.target.getAttribute('onclick').match(/'([^']+)'/)[1];
+    const result = game.buyItem(itemType);
+    if (!result.success) {
+      updateUI(result.message, '❌');
+    } else {
+      updateUI(result.message, '💰');
+    }
+  });
+});
+
+// Add event listener for sonar ping button
+document.getElementById('use-sonar').addEventListener('click', () => {
+  const result = game.useSonarPing();
+  if (result.success) {
+    updateUI(result.message, '📡');
+  } else {
+    updateUI(result.message, '❌');
+  }
 });
 
 // Initial UI
