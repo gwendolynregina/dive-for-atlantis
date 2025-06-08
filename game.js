@@ -322,7 +322,7 @@ const sharksEl = document.getElementById('sharks');
 const repellentsEl = document.getElementById('repellents');
 const detectorsEl = document.getElementById('detectors');
 const useDetectorBtn = document.getElementById('use-detector');
-diveStatusEl = document.getElementById('dive-status');
+const diveStatusEl = document.getElementById('dive-status');
 const currentStatusEmojiEl = document.getElementById('current-status-emoji');
 const currentStatusTextEl = document.getElementById('current-status-text');
 const logEmojiEl = document.getElementById('log-emoji');
@@ -334,8 +334,11 @@ const startDiveBtn = document.getElementById('start-dive');
 const diveDeeperBtn = document.getElementById('dive-deeper');
 const surfaceBtn = document.getElementById('surface');
 
+// ZK Proof related elements
 const zkProofBtn = document.getElementById('zk-proof-btn');
 const zkProofOutput = document.getElementById('zk-proof-output');
+const decodeProofBtn = document.getElementById('decode-proof-btn');
+const decodedProofOutput = document.getElementById('decoded-proof-output');
 
 // Background image for each current status
 const CURRENT_STATUS_IMAGE = {
@@ -485,7 +488,6 @@ function updateUI(logMsg = null, logEmoji = null) {
     diveDeeperBtn.disabled = !game.inDive || game.gameOver || game.mainAirSupply <= 0;
     surfaceBtn.disabled = !game.inDive || game.gameOver;
     document.getElementById('use-air-tank').disabled = game.inDive || game.gameOver || game.airTanks <= 0;
-    document.getElementById('use-detector').disabled = game.inDive || game.gameOver || game.metalDetectors <= 0;
     document.getElementById('use-sonar').disabled = !game.inDive || game.gameOver || game.sonarPings <= 0;
 }
 
@@ -543,7 +545,6 @@ zkProofBtn.addEventListener('click', async () => {
     const input = {
         final_score: game.totalScore,
         air_left: game.mainAirSupply,
-
     };
 
     try {
@@ -553,6 +554,9 @@ zkProofBtn.addEventListener('click', async () => {
             'main.wasm',
             'main.groth16.zkey'
         );
+
+        // Store the proof data for later decoding
+        lastProofData = { proof, publicSignals };
 
         zkProofOutput.textContent = 'Proof generated! Submitting to zkVerify...';
 
@@ -610,6 +614,9 @@ zkProofBtn.addEventListener('click', async () => {
                 zkProofOutput.innerHTML = "Job finalized successfully!" + explorerLink + "\n\n" +
                     JSON.stringify(jobStatusResponse, null, 2);
                 finalized = true;
+
+                // ADD THIS LINE:
+                decodeProofBtn.style.display = 'block'; // Show the decode button
             } else {
                 zkProofOutput.textContent = "Job status: " + jobStatusResponse.status +
                     "\nWaiting for job to finalize...\n\n" +
@@ -624,6 +631,26 @@ zkProofBtn.addEventListener('click', async () => {
         zkProofOutput.textContent = 'Error generating or submitting proof:\n' + err;
     }
     zkProofBtn.disabled = false;
+});
+
+decodeProofBtn.addEventListener('click', () => {
+    if (lastProofData) {
+        // Format the stored proof data as a readable string
+        const formattedProof = JSON.stringify(lastProofData, null, 2);
+
+        // Display the data in the output element
+        decodedProofOutput.textContent = formattedProof;
+
+        // Toggle visibility
+        if (decodedProofOutput.style.display === 'none') {
+            decodedProofOutput.style.display = 'block';
+        } else {
+            decodedProofOutput.style.display = 'none';
+        }
+    } else {
+        decodedProofOutput.textContent = 'No proof data available to decode.';
+        decodedProofOutput.style.display = 'block';
+    }
 });
 
 const resetGameBtn = document.getElementById('reset-game-btn');
