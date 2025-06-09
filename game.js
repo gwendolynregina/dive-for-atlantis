@@ -69,7 +69,7 @@ class GameManager {
     this.DIVE_COSTS = {
       NO_CURRENT: 10,
       SOME_CURRENT: 15,
-      STRONG_CURRENTS: 25 // High risk, high cost!
+      STRONG_CURRENTS: 25
     };
     
     // Shop item prices
@@ -92,13 +92,37 @@ class GameManager {
     this.gameOver = false;
     this.lastEvent = null;
     this.sharksEncountered = 0;
-    this.sharkRepellents = 0; 
+    this.sharkRepellents = 0;
     this.metalDetectors = 0;
     this.metalDetectorActive = false;
-    this.wallet = 200; // Starting money
-    this.airTanks = 0; // Track number of air tanks
-    this.sonarPings = 0; // Track number of sonar pings
-    this.predictedEvent = null; // Store the event predicted by sonar
+    this.wallet = 200;
+    this.airTanks = 0;
+    this.sonarPings = 0;
+    this.predictedEvent = null;
+    this.inventory = new Map(); // Track collected items
+    this.depthMeters = 0;
+    this.depthFeet = 0;
+  }
+
+  // Add item to inventory
+  addToInventory(itemId, quantity = 1) {
+    const currentQuantity = this.inventory.get(itemId) || 0;
+    this.inventory.set(itemId, currentQuantity + quantity);
+  }
+
+  // Remove item from inventory
+  removeFromInventory(itemId, quantity = 1) {
+    const currentQuantity = this.inventory.get(itemId) || 0;
+    if (currentQuantity < quantity) {
+      return false;
+    }
+    this.inventory.set(itemId, currentQuantity - quantity);
+    return true;
+  }
+
+  // Get inventory item count
+  getInventoryCount(itemId) {
+    return this.inventory.get(itemId) || 0;
   }
 
   // Shop functionality
@@ -134,7 +158,15 @@ class GameManager {
     // Update UI
     this.updateShopUI();
     
-    return { success: true, message: `Successfully purchased ${itemType}!` };
+    // Get user-friendly item name
+    const itemNames = {
+      'AIR_TANK': 'an Air Tank',
+      'SHARK_REPELLENT': 'a Shark Repellent',
+      'METAL_DETECTOR': 'a Metal Detector',
+      'SONAR_PING': 'a Sonar Ping'
+    };
+    
+    return { success: true, message: `Successfully purchased ${itemNames[itemType]}!` };
   }
 
   updateShopUI() {
@@ -150,16 +182,30 @@ class GameManager {
 
   checkGameOver() {
     if (this.mainAirSupply <= 0) {
+      if (this.airTanks > 0) {
+        // Don't end game if player has air tanks
+        return false;
+      }
       this.gameOver = true;
       this.inDive = false;
       this.currentHaul = 0;
+      return true;
     }
+    return false;
   }
 
   startDive() {
-    if (this.gameOver || this.mainAirSupply <= 0) return false;
+    if (this.gameOver || this.mainAirSupply <= 0) {
+      if (this.mainAirSupply <= 0 && this.airTanks > 0) {
+        return { success: false, message: "Out of air! Use an Air Tank to continue diving." };
+      }
+      return false;
+    }
     this.mainAirSupply -= 20;
     if (this.mainAirSupply < 0) {
+      if (this.airTanks > 0) {
+        return { success: false, message: "Out of air! Use an Air Tank to continue diving." };
+      }
       this.checkGameOver();
       return false;
     }
@@ -167,7 +213,9 @@ class GameManager {
     this.currentHaul = 0;
     this.currentStatus = this.rollCurrentStatus();
     this.lastEvent = null;
-    return true;
+    this.depthMeters = 5;
+    this.depthFeet = 16;
+    return { success: true };
   }
 
   rollCurrentStatus() {
@@ -240,22 +288,26 @@ class GameManager {
   }
 
   diveDeeper() {
-    if (!this.inDive || this.gameOver || this.mainAirSupply <= 0) return null;
+    if (!this.inDive || this.gameOver) return false;
     
     const cost = this.DIVE_COSTS[this.currentStatus];
     if (this.mainAirSupply < cost) {
-      return null;
+      if (this.airTanks > 0) {
+        return { success: false, message: "Out of air! Use an Air Tank to continue diving." };
+      }
+      this.checkGameOver();
+      return false;
     }
     
     this.mainAirSupply -= cost;
+    this.depthMeters += 10;
+    this.depthFeet += 32;
     
-    // Use the predicted event if it exists, otherwise generate a new one
     let event;
     if (this.predictedEvent) {
       event = this.predictedEvent;
-      this.predictedEvent = null; // Clear the prediction after using it
+      this.predictedEvent = null;
     } else {
-      // Use boosted tables if metal detector is active
       const eventTables = this.metalDetectorActive ? BOOSTED_EVENT_TABLES : EVENT_TABLES;
       event = weightedRandom(eventTables[this.currentStatus]);
     }
@@ -266,28 +318,32 @@ class GameManager {
     if (event.event === "SHARK") {
       this.sharksEncountered++;
       
-      // Check for Shark Repellent!
       if (this.sharkRepellents > 0) {
-        this.sharkRepellents--; // Consume the repellent
-        // The repellent works! Negate the bust effect. The dive continues.
-        outcome.repellentUsed = true; // Add a flag for the UI to report this
+        this.sharkRepellents--;
+        outcome.repellentUsed = true;
       } else {
-        // No repellent, normal bust outcome
         this.currentHaul = 0;
         this.inDive = false;
       }
     } else if (event.event === "LOST_BEARINGS") {
       // Nothing changes
-    } else if (["ATLANTIS_DISCOVERY", "OLD_COINS", "SHIPWRECK_DEBRIS", "SUNKEN_CHEST", "ANCIENT_RELIC"].includes(event.event)) {
-      this.currentHaul += event.money;
+    } else {
+      // Handle treasure discovery
+      const item = window.ItemManager.getItem(event.event);
+      if (item) {
+        this.currentHaul += item.value;
+        this.addToInventory(event.event);
+      }
     }
 
-    // Reset metal detector after use
     if (this.metalDetectorActive) {
       this.metalDetectorActive = false;
     }
 
     if (this.mainAirSupply <= 0) {
+      if (this.airTanks > 0) {
+        return { ...outcome, success: false, message: "Out of air! Use an Air Tank to continue diving." };
+      }
       this.checkGameOver();
       this.inDive = false;
       return { ...outcome, diveEnded: true, haulAfter: this.currentHaul };
@@ -306,6 +362,8 @@ class GameManager {
     this.inDive = false;
     this.currentStatus = null;
     this.lastEvent = null;
+    this.depthMeters = 0;
+    this.depthFeet = 0;
     return true;
   }
 }
@@ -363,7 +421,7 @@ function setStatusBackground(status) {
 function statusEmoji(status) {
   switch (status) {
     case 'NO_CURRENT': return '🟦';
-    case 'SOME_CURRENT': return '🌊';
+    case 'SOME_CURRENT': return '��';
     case 'STRONG_CURRENTS': return '🌪️';
     default: return '';
   }
@@ -420,6 +478,8 @@ function updateUI(logMsg = null, logEmoji = null) {
     repellentsEl.textContent = game.sharkRepellents;
     detectorsEl.textContent = game.metalDetectors;
     document.getElementById('money').textContent = game.wallet; // Update wallet display
+    document.getElementById('depth').textContent = game.depthMeters;
+    document.getElementById('depth-feet').textContent = game.depthFeet;
     useDetectorBtn.disabled = !game.inDive || game.gameOver || game.metalDetectors <= 0 || game.metalDetectorActive;
     diveStatusEl.textContent = game.inDive ? "Diving 🤿" : "At Surface 🚤";
     if (game.inDive && game.currentStatus) {
@@ -492,10 +552,11 @@ function updateUI(logMsg = null, logEmoji = null) {
 }
 
 startDiveBtn.addEventListener('click', () => {
-  if (game.startDive()) {
+  const result = game.startDive();
+  if (result.success) {
     updateUI('You begin a new dive!', '🤿');
   } else {
-    updateUI('Cannot start dive. Out of air or game over.', '❌');
+    updateUI(result.message || 'Cannot start dive. Out of air or game over.', '❌');
   }
 });
 
@@ -503,6 +564,10 @@ diveDeeperBtn.addEventListener('click', () => {
   const result = game.diveDeeper();
   if (!result) {
     updateUI('Cannot dive deeper.', '❌');
+    return;
+  }
+  if (!result.success) {
+    updateUI(result.message, '❌');
     return;
   }
   let msg = eventText(result);
@@ -662,9 +727,9 @@ resetGameBtn.addEventListener('click', () => {
 });
 
 // Shop button event listeners
-document.querySelectorAll('button[onclick^="buyItem"]').forEach(button => {
+document.querySelectorAll('.buy-item-btn').forEach(button => {
   button.addEventListener('click', (e) => {
-    const itemType = e.target.getAttribute('onclick').match(/'([^']+)'/)[1];
+    const itemType = e.target.getAttribute('data-item-type');
     const result = game.buyItem(itemType);
     if (!result.success) {
       updateUI(result.message, '❌');
